@@ -26,3 +26,9 @@ Pages has no server, so the mail.tm proxy runs as a free Cloudflare Worker:
 2. In the Worker settings add the variable `ALLOWED_ORIGIN` = `https://<your-github-username>.github.io`.
 3. In `config.js` set `apiBase` to the Worker's URL (e.g. `https://testtickle.<you>.workers.dev`).
 4. Repo Settings > Pages > Deploy from branch `main` (the repo must be public on a free GitHub plan).
+
+## Fallback provider
+
+If mail.tm is down when you create an inbox, the app falls back to temp-mail.io (proxied by `server.js` at `/api2`).
+The tile's address tooltip shows which provider made it. The fallback works with `node server.js` only; on GitHub Pages
+set `apiBase2` in `config.js` to a Worker that proxies `https://api.internal.temp-mail.io/api/v3`.

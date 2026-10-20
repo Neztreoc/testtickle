@@ -186,7 +186,7 @@
     <div class="logo"><i id="logoI"></i>TestTickle</div>
     <h3>WORKSPACE</h3>
     <nav id="nav"></nav>
-    <div class="foot">Inboxes are saved in this browser.<br>Mail via mail.tm
+    <div class="foot">Inboxes are saved in this browser.<br>Mail via mail.tm (temp-mail.io fallback)
       <button class="out" id="out" type="button">Sign out</button></div>
   </aside>
   <main>
@@ -255,8 +255,11 @@ async function copy(text, what) { try { await navigator.clipboard.writeText(text
 const jget = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
 const jset = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
 
-async function api(path, { method = "GET", body, token } = {}) {
-  const r = await fetch(API + path, {
+// Fallback provider (temp-mail.io), used when mail.tm is down. Needs a proxy path too: server.js provides /api2.
+const API2 = (window.TESTTICKLE_CONFIG || {}).apiBase2 || (API === "/api" ? "/api2" : null);
+
+async function api(path, { method = "GET", body, token, base = API } = {}) {
+  const r = await fetch(base + path, {
     method,
     headers: { ...(body ? { "Content-Type": "application/json" } : {}), ...(token ? { Authorization: "Bearer " + token } : {}) },
     body: body ? JSON.stringify(body) : undefined,
@@ -264,9 +267,46 @@ async function api(path, { method = "GET", body, token } = {}) {
   if (r.status === 204) return null;
   const data = await r.json().catch(() => null);
   if (r.status === 401 && data?.["hydra:description"] === "Not signed in") { location.href = "/login"; throw new Error("Signed out"); }
-  if (!r.ok) throw Object.assign(new Error(data?.["hydra:description"] || r.statusText), { status: r.status });
+  if (!r.ok) throw Object.assign(new Error(data?.["hydra:description"] || data?.message || r.statusText || "HTTP " + r.status), { status: r.status });
   return data;
 }
+
+// ---- providers: each returns/accepts the same shapes so the UI doesn't care which one made the inbox
+const parseFrom = s => { const m = /^\s*"?([^"<]*?)"?\s*<([^>]+)>\s*$/.exec(s || ""); return m ? { name: m[1], address: m[2] } : { name: "", address: s || "" }; };
+const MAILTM = {
+  label: "mail.tm",
+  async create() {
+    const domain = (await api("/domains"))["hydra:member"][0].domain;
+    const address = `test-${rand(10)}@${domain}`, password = rand(16);
+    const acct = await api("/accounts", { method: "POST", body: { address, password } });
+    const { token } = await api("/token", { method: "POST", body: { address, password } });
+    return { provider: "mailtm", address, password, token, accountId: acct.id };
+  },
+  async list(box) { return (await api("/messages", { token: box.token }))["hydra:member"]; },
+  get: (box, id) => api("/messages/" + id, { token: box.token }),
+  remove: box => api("/accounts/" + box.accountId, { method: "DELETE", token: box.token }),
+};
+const TMIO = {
+  label: "temp-mail.io",
+  async create() {
+    const r = await api("/email/new", { method: "POST", body: { min_name_length: 10, max_name_length: 10 }, base: API2 });
+    return { provider: "tmio", address: r.email, token: r.token, accountId: r.email };
+  },
+  async raw(box) { return await api(`/email/${box.address}/messages`, { base: API2 }); },
+  async list(box) {
+    return (await this.raw(box)).map(m => ({ id: m.id, from: parseFrom(m.from), subject: m.subject,
+      intro: (m.body_text || "").replace(/\s+/g, " ").slice(0, 120), createdAt: m.created_at }));
+  },
+  async get(box, id) {
+    const m = (await this.raw(box)).find(x => x.id === id);
+    if (!m) throw new Error("Message no longer exists");
+    return { id: m.id, subject: m.subject, from: parseFrom(m.from), to: [{ address: box.address }], createdAt: m.created_at,
+      size: (m.body_text || m.body_html || "").length, text: m.body_text || "", html: m.body_html ? [m.body_html] : [],
+      attachments: (m.attachments || []).map(a => ({ filename: a.name || a.filename || "attachment" })) };
+  },
+  remove: box => api("/email/" + box.address, { method: "DELETE", body: { email: box.address, token: box.token }, base: API2 }),
+};
+const prov = box => (box.provider === "tmio" ? TMIO : MAILTM);
 
 // ---- state
 let inboxes = jget(STORE, []);          // {id, label, address, password, token, accountId}
@@ -274,7 +314,7 @@ const prefs = { view: "tiles", ...jget(PREF, {}) };
 const tiles = new Map();                 // id -> {box, el, st, refs}
 const msgCache = new Map();              // message id -> full message
 let filter = "all", sel = null, tab = "preview";
-const save = () => jset(STORE, inboxes.map(({ id, label, address, password, token, accountId }) => ({ id, label, address, password, token, accountId })));
+const save = () => jset(STORE, inboxes.map(({ id, label, provider, address, password, token, accountId }) => ({ id, label, provider, address, password, token, accountId })));
 const visible = () => inboxes.filter(b => filter === "all" || key(b) === filter);
 
 // ---- static icons
@@ -337,7 +377,7 @@ function mount(box) {
   const tt = el("div", "tt"), trow = el("div", "trow");
   const label = el("input", "label"); label.value = box.label || ""; label.placeholder = "Add label…"; label.maxLength = 40; label.title = "Click to rename";
   const badge = el("span", "badge", "Connecting");
-  const addr = el("div", "addr", box.address); addr.title = box.address;
+  const addr = el("div", "addr", box.address); addr.title = box.address + " · via " + prov(box).label;
   trow.append(label); tt.append(trow);
   const acts = el("div", "acts");
   const bCopy = btn("ib", "copy", "Copy address"), bRef = btn("ib", "refresh", "Refresh now"), bX = btn("ib", "x", "Close & delete inbox");
@@ -384,12 +424,12 @@ function loop(t) {
 }
 async function poll(t) {
   try {
-    const list = (await api("/messages", { token: t.box.token }))["hydra:member"];
+    const list = await prov(t.box).list(t.box);
     if (t.st.known && list.some(m => !t.st.known.has(m.id))) toast(`New email in ${t.box.label.trim() || t.box.address}`);
     t.st.known = new Set(list.map(m => m.id)); t.st.msgs = list; t.st.status = "live";
   } catch (e) {
     if (e.status === 429) return;
-    t.st.status = e.status === 401 ? "expired" : "offline";
+    t.st.status = e.status === 401 || e.status === 404 ? "expired" : "offline";
   }
   if (!tiles.has(t.box.id)) return;
   renderTile(t); applyFilterLight(); updateTitle();
@@ -424,7 +464,7 @@ function removeTile(t) {
   try { localStorage.removeItem("tt.seen." + t.box.id); } catch {}
   if (sel?.boxId === t.box.id) sel = null;
   renderSide(); applyFilter(); renderPreview(); updateTitle();
-  api("/accounts/" + t.box.accountId, { method: "DELETE", token: t.box.token }).catch(() => {});
+  prov(t.box).remove(t.box).catch(() => {});
 }
 
 // ---- preview
@@ -434,7 +474,7 @@ function select(t, m) {
   t.st.seen.add(m.id); jset("tt.seen." + t.box.id, [...t.st.seen]);
   if (prev && prev !== t) renderTile(prev);
   renderTile(t); updateTitle(); renderPreview();
-  if (!msgCache.has(m.id)) api("/messages/" + m.id, { token: t.box.token })
+  if (!msgCache.has(m.id)) prov(t.box).get(t.box, m.id)
     .then(f => { msgCache.set(m.id, f); if (sel?.msgId === m.id) renderPreview(); })
     .catch(e => { if (sel?.msgId === m.id) renderPreview("Could not load message: " + e.message); });
 }
@@ -496,11 +536,14 @@ function renderPreview(err) {
 
 // ---- create / dialogs
 async function createInbox(label) {
-  const domain = (await api("/domains"))["hydra:member"][0].domain;
-  const address = `test-${rand(10)}@${domain}`, password = rand(16);
-  const acct = await api("/accounts", { method: "POST", body: { address, password } });
-  const { token } = await api("/token", { method: "POST", body: { address, password } });
-  const box = { id: rand(8), label, address, password, token, accountId: acct.id };
+  let made;
+  try { made = await MAILTM.create(); }
+  catch (e) {
+    if (!API2) throw e;
+    try { made = await TMIO.create(); toast(`mail.tm is down (${e.message}). Using ${TMIO.label} instead.`); }
+    catch (e2) { throw new Error(`mail.tm: ${e.message}; ${TMIO.label}: ${e2.message}`); }
+  }
+  const box = { id: rand(8), label, ...made };
   inboxes.push(box); save(); mount(box); renderSide(); applyFilter();
 }
 const dlg = $("#dlg"), dlgLabel = $("#dlgLabel");
