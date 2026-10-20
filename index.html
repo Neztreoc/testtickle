@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TestTickle</title>
+<script src="config.js"></script>
+<script src="gate.js"></script>
 <style>
   :root {
     --bg: #f5f6fa; --card: #fff; --card-2: #f1f3f9; --line: #e3e6ef; --text: #0f172a; --dim: #516078;
@@ -19,6 +21,15 @@
   body { background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
   button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
   svg { display: block; }
+  html.locked #app { display: none; }
+  #gate { min-height: 100vh; display: grid; place-items: center; padding: 16px; }
+  #gate[hidden] { display: none; }
+  #gateForm { width: min(360px, 100%); display: grid; gap: 14px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 28px; }
+  .glogo { display: flex; align-items: center; gap: 10px; font-size: 22px; font-weight: 700; }
+  .glogo i { width: 36px; height: 36px; border-radius: 9px; background: #4f7cff; display: grid; place-items: center; }
+  #gateForm input[type=password] { width: 100%; font: inherit; font-size: 16px; padding: 10px 12px; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; }
+  .remember { color: var(--dim); font-size: 14px; display: flex; gap: 8px; align-items: center; }
+  .gmsg { margin: 0; min-height: 1.2em; font-size: 14px; } .gmsg.err { color: var(--err); }
   #app { display: grid; grid-template-columns: 220px 1fr; min-height: 100%; }
 
   /* sidebar */
@@ -161,13 +172,22 @@
 </style>
 </head>
 <body>
+<div id="gate" hidden>
+  <form id="gateForm">
+    <div class="glogo"><i id="gLogo"></i>TestTickle</div>
+    <input type="password" id="gatePw" placeholder="Password" autocomplete="current-password" required>
+    <label class="remember"><input type="checkbox" id="gateRemember"> Keep me signed in on this device</label>
+    <button class="btn primary" type="submit">Sign in</button>
+    <p class="gmsg" id="gateMsg" role="alert"></p>
+  </form>
+</div>
 <div id="app">
   <aside>
     <div class="logo"><i id="logoI"></i>TestTickle</div>
     <h3>WORKSPACE</h3>
     <nav id="nav"></nav>
     <div class="foot">Inboxes are saved in this browser.<br>Mail via mail.tm
-      <form method="post" action="/logout"><button class="out">Sign out</button></form></div>
+      <button class="out" id="out" type="button">Sign out</button></div>
   </aside>
   <main>
     <div class="top">
@@ -203,7 +223,8 @@
 </dialog>
 
 <script>
-const API = "/api"; // proxied by server.js (mail.tm blocks direct browser requests)
+// mail.tm blocks direct browser requests, so calls go through server.js or a Cloudflare Worker (see config.js)
+const API = ((window.TESTTICKLE_CONFIG || {}).apiBase || "/api").replace(/\/$/, "");
 const STORE = "testtickle.inboxes.v1", PREF = "testtickle.prefs", POLL_MS = 8000;
 const $ = s => document.querySelector(s);
 const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
@@ -258,6 +279,11 @@ const visible = () => inboxes.filter(b => filter === "all" || key(b) === filter)
 
 // ---- static icons
 $("#logoI").innerHTML = ic("check", 22).replace('stroke="currentColor"', 'stroke="#fff"');
+$("#gLogo").innerHTML = ic("check", 22).replace('stroke="currentColor"', 'stroke="#fff"');
+$("#out").onclick = () => {
+  try { localStorage.removeItem("tt-auth"); sessionStorage.removeItem("tt-auth"); } catch {}
+  fetch("/logout", { method: "POST" }).catch(() => {}).finally(() => location.reload()); // /logout only exists with server.js
+};
 $("#add").innerHTML = ic("plus") + "New inbox";
 $("#vTiles").innerHTML = ic("grid", 18) + "Tiles";
 $("#vList").innerHTML = ic("list", 18) + "List";
