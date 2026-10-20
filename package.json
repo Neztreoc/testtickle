@@ -1,0 +1,8 @@
+{
+  "name": "testtickle",
+  "version": "1.0.0",
+  "description": "Disposable test inboxes with persona labels, behind a login.",
+  "private": true,
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" }
+}

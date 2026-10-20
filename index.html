@@ -1,0 +1,506 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TestTickle</title>
+<style>
+  :root {
+    --bg: #f5f6fa; --card: #fff; --card-2: #f1f3f9; --line: #e3e6ef; --text: #0f172a; --dim: #516078;
+    --accent: #2563eb; --accent-soft: #e8eefc; --live: #16a34a; --live-soft: #dcfce7; --err: #dc2626; --err-soft: #fee2e2;
+    --side: #0f1b3d; --side-text: #c4cce0; --side-hi: #1c2c5c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0b1020; --card: #141a2e; --card-2: #1b2340; --line: #26304f; --text: #e8ecf8; --dim: #8e9bbd;
+      --accent: #5b8cff; --accent-soft: #1d2a52; --live-soft: #12351f; --err-soft: #3a1717; --side: #080e22; --side-hi: #16214a; }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+  svg { display: block; }
+  #app { display: grid; grid-template-columns: 220px 1fr; min-height: 100%; }
+
+  /* sidebar */
+  aside { background: var(--side); color: var(--side-text); padding: 24px 16px; display: flex; flex-direction: column; gap: 8px;
+    position: sticky; top: 0; height: 100vh; }
+  .logo { display: flex; align-items: center; gap: 10px; color: #fff; font-size: 22px; font-weight: 700; padding: 0 8px 20px; }
+  .logo i { width: 36px; height: 36px; border-radius: 9px; background: #4f7cff; display: grid; place-items: center; }
+  aside h3 { margin: 8px 10px; font-size: 11px; letter-spacing: .14em; color: #8190b4; font-weight: 600; }
+  nav { display: flex; flex-direction: column; gap: 2px; overflow: auto; }
+  nav button { display: flex; align-items: center; gap: 12px; padding: 10px; border-radius: 8px; text-align: left; position: relative; color: var(--side-text); }
+  nav button:hover { background: var(--side-hi); }
+  nav button.on { background: var(--side-hi); color: #fff; }
+  nav button.on::before { content: ""; position: absolute; left: -16px; top: 8px; bottom: 8px; width: 4px; border-radius: 0 4px 4px 0; background: #4f7cff; }
+  nav .n { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  nav .c { font-size: 13px; opacity: .8; }
+  nav .dotp { width: 18px; height: 18px; border-radius: 50%; flex: none; }
+  .out { margin-top: 10px; padding: 6px 12px; border: 1px solid #25335f; border-radius: 8px; color: var(--side-text); }
+  .out:hover { background: var(--side-hi); color: #fff; }
+  .foot { margin-top: auto; border-top: 1px solid #25335f; padding: 14px 10px 0; font-size: 12px; color: #8190b4; }
+
+  /* main */
+  main { padding: 24px 20px 40px; min-width: 0; }
+  .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 20px; }
+  h1 { margin: 0; font-size: 34px; line-height: 1.15; letter-spacing: -.02em; }
+  .sub { margin: 4px 0 0; color: var(--dim); font-size: 17px; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; padding: 12px 20px; font-size: 16px; }
+  .btn:disabled { opacity: .6; cursor: default; }
+  .bar { display: flex; align-items: center; gap: 14px; padding: 8px 12px 8px 20px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+  .bar .count { color: var(--dim); font-size: 16px; padding-right: 14px; border-right: 1px solid var(--line); }
+  .bar .listen { display: flex; align-items: center; gap: 8px; color: var(--dim); }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--dim); }
+  .dot.live { background: var(--live); }
+  .sp { flex: 1; }
+  .seg { display: flex; gap: 2px; }
+  .seg button { display: flex; align-items: center; gap: 8px; padding: 7px 12px; border-radius: 8px; color: var(--dim); }
+  .seg button.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .bar .danger { color: var(--dim); display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-left: 1px solid var(--line); border-radius: 0 8px 8px 0; }
+  .bar .danger:hover { color: var(--err); }
+
+  /* tiles */
+  #grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 16px; margin-bottom: 18px; }
+  #grid.list { grid-template-columns: 1fr; }
+  .tile { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px 18px 10px; display: flex; flex-direction: column; min-width: 0; }
+  .tile[hidden] { display: none; }
+  .tile.sel { border: 2px solid var(--accent); padding: 17px 17px 9px; }
+  .tile.dragging { opacity: .45; }
+  .tile.over { outline: 2px dashed var(--accent); outline-offset: 2px; }
+  .thead { display: flex; flex-direction: column; gap: 10px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+  .hrow { display: flex; align-items: center; gap: 12px; }
+  .grip { color: var(--dim); cursor: grab; padding: 6px 0; margin-left: -8px; opacity: .5; }
+  .tile:hover .grip { opacity: 1; }
+  .avatar { width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 20px; flex: none; }
+  .tt { flex: 1; min-width: 0; }
+  .trow { display: flex; align-items: center; gap: 8px; }
+  .label { font-size: 26px; font-weight: 700; line-height: 1.2; letter-spacing: -.01em; font-family: inherit; color: var(--text); background: transparent; border: 1px solid transparent;
+    border-radius: 6px; padding: 1px 6px; margin-left: -7px; flex: 1; min-width: 0; }
+  .arow { display: flex; align-items: center; gap: 8px; }
+  .arow .addr { flex: 1; min-width: 0; }
+  .label:hover { border-color: var(--line); }
+  .label:focus { outline: none; border-color: var(--accent); background: var(--card-2); }
+  .label::placeholder { color: var(--dim); font-weight: 400; }
+  .badge { font-size: 12px; padding: 1px 9px; border-radius: 999px; background: var(--card-2); color: var(--dim); display: inline-flex; align-items: center; gap: 5px; flex: none; }
+  .badge::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .badge.live { background: var(--live-soft); color: var(--live); }
+  .badge.bad { background: var(--err-soft); color: var(--err); }
+  .addr { color: var(--text); font: 500 14px/1.3 ui-monospace, Consolas, monospace; background: var(--card-2); border-radius: 6px;
+    padding: 6px 10px; overflow-wrap: anywhere; user-select: all; }
+  .acts { display: flex; gap: 2px; }
+  .ib { padding: 8px; border-radius: 8px; color: var(--text); }
+  .ib:hover { background: var(--card-2); }
+  .ib.spin svg { animation: spin .7s linear; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .msgs { max-height: 210px; min-height: 150px; overflow: auto; margin: 8px -8px 0; padding: 0 8px; flex: 1; }
+  #grid.list .msgs { min-height: 0; max-height: 170px; }
+  .msg { display: flex; gap: 12px; align-items: flex-start; padding: 10px; border-radius: 8px; cursor: pointer; }
+  .msg:hover { background: var(--card-2); }
+  .msg.on { background: var(--accent-soft); }
+  .msg .u { width: 9px; height: 9px; border-radius: 50%; background: #cbd2e1; margin-top: 7px; flex: none; }
+  .msg.new .u { background: var(--accent); }
+  .msg .b { flex: 1; min-width: 0; }
+  .msg .f, .msg .s { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .msg .f { font-weight: 500; }
+  .msg.new .f { font-weight: 700; }
+  .msg .s { color: var(--text); opacity: .85; }
+  .msg time { color: var(--dim); font-size: 14px; flex: none; }
+  .none { height: 100%; min-height: 140px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; color: var(--dim); gap: 2px; }
+  .none b { color: var(--text); font-size: 17px; margin-top: 8px; }
+  .gone { padding: 60px 20px; text-align: center; color: var(--dim); background: var(--card); border: 1px dashed var(--line); border-radius: 12px; margin-bottom: 18px; }
+  .gone b { display: block; color: var(--text); font-size: 18px; margin-bottom: 4px; }
+
+  /* preview */
+  #pv { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 20px 22px 14px; }
+  .eyebrow { font-size: 12px; letter-spacing: .12em; color: var(--dim); font-weight: 600; text-transform: uppercase; }
+  .pvh { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; flex-wrap: wrap; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+  .pvh h2 { margin: 2px 0 2px; font-size: 24px; line-height: 1.2; word-break: break-word; }
+  .pvh .from { color: var(--dim); font-size: 16px; word-break: break-all; }
+  .tabs { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .tabs button { padding: 9px 18px; color: var(--dim); border-left: 1px solid var(--line); }
+  .tabs button:first-child { border-left: 0; }
+  .tabs button.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: var(--card-2);
+    border: 1px solid var(--line); font-size: 13px; max-width: 100%; }
+  .chip:hover { border-color: var(--accent); }
+  .chip b { font: 600 14px ui-monospace, Consolas, monospace; letter-spacing: .06em; }
+  .chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 340px; }
+  .pvbody { margin-top: 14px; background: var(--card-2); border-radius: 10px; padding: 14px; }
+  .pvbody iframe { width: 100%; height: 380px; border: 0; background: #fff; border-radius: 6px; display: block; resize: vertical; }
+  .pvbody pre { margin: 0; white-space: pre-wrap; word-break: break-word; font: 13px/1.5 ui-monospace, Consolas, monospace; max-height: 380px; overflow: auto; }
+  .pvbody table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  .pvbody td { padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; word-break: break-all; }
+  .pvbody td:first-child { color: var(--dim); width: 130px; white-space: nowrap; }
+  .pvf { color: var(--dim); font-size: 13px; padding-top: 10px; }
+  .pvempty { text-align: center; color: var(--dim); padding: 30px 10px; }
+
+  /* dialog */
+  dialog { background: var(--card); color: var(--text); border: 1px solid var(--line); border-radius: 14px; padding: 22px; width: min(400px, 92vw); }
+  dialog::backdrop { background: rgba(8, 14, 34, .55); }
+  dialog h2 { margin: 0 0 2px; font-size: 20px; }
+  dialog p { margin: 0 0 14px; color: var(--dim); }
+  dialog input { width: 100%; font: inherit; font-size: 16px; padding: 10px 12px; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; }
+  dialog input:focus { outline: 2px solid var(--accent); border-color: transparent; }
+  dialog .chips { margin: 12px 0 18px; }
+  dialog .chip { cursor: pointer; }
+  .actions { display: flex; justify-content: flex-end; gap: 8px; }
+  .actions .primary { padding: 8px 16px; font-size: 15px; }
+  .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg);
+    padding: 9px 16px; border-radius: 8px; z-index: 50; max-width: 90vw; }
+
+  @media (max-width: 860px) {
+    #app { grid-template-columns: 1fr; }
+    aside { position: static; height: auto; padding: 12px; flex-direction: row; align-items: center; overflow-x: auto; }
+    .logo { padding: 0 8px 0 0; font-size: 18px; } aside h3, .foot { display: none; }
+    nav { flex-direction: row; } nav button { white-space: nowrap; } nav button.on::before { display: none; }
+    main { padding: 18px 14px 30px; } h1 { font-size: 26px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <aside>
+    <div class="logo"><i id="logoI"></i>TestTickle</div>
+    <h3>WORKSPACE</h3>
+    <nav id="nav"></nav>
+    <div class="foot">Inboxes are saved in this browser.<br>Mail via mail.tm
+      <form method="post" action="/logout"><button class="out">Sign out</button></form></div>
+  </aside>
+  <main>
+    <div class="top">
+      <div><h1>Your test inboxes</h1><p class="sub">A fresh address for every flow.</p></div>
+      <button class="btn primary" id="add"></button>
+    </div>
+    <div class="bar">
+      <span class="count" id="count"></span>
+      <span class="listen"><span class="dot" id="ldot"></span><span id="ltxt">Listening for email</span></span>
+      <span class="sp"></span>
+      <div class="seg" id="seg">
+        <button data-v="tiles" id="vTiles"></button><button data-v="list" id="vList"></button>
+      </div>
+      <button class="danger" id="clear"></button>
+    </div>
+    <div id="gone" class="gone" hidden></div>
+    <div id="grid"></div>
+    <section id="pv"></section>
+  </main>
+</div>
+
+<dialog id="dlg">
+  <form method="dialog" id="dlgForm">
+    <h2>New inbox</h2>
+    <p>What persona is this for?</p>
+    <input id="dlgLabel" placeholder="e.g. Candidate, Client, QA sandbox" maxlength="40" autocomplete="off">
+    <div class="chips" id="chips"></div>
+    <div class="actions">
+      <button class="btn" type="button" id="dlgCancel">Cancel</button>
+      <button class="btn primary" type="submit">Create inbox</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+const API = "/api"; // proxied by server.js (mail.tm blocks direct browser requests)
+const STORE = "testtickle.inboxes.v1", PREF = "testtickle.prefs", POLL_MS = 8000;
+const $ = s => document.querySelector(s);
+const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+const P = {
+  copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/>',
+  refresh: '<path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/>',
+  x: '<path d="M6 6l12 12M18 6L6 18"/>', plus: '<path d="M12 5v14M5 12h14"/>',
+  grid: '<rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/>',
+  list: '<path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/>',
+  trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/>',
+  mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>',
+  grip: '<path d="M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01" stroke-width="3"/>',
+  check: '<path d="M5 12l5 5 9-10"/>',
+};
+const ic = (n, s = 20) => `<svg viewBox="0 0 24 24" width="${s}" height="${s}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${P[n]}</svg>`;
+const btn = (cls, icon, title) => { const b = el("button", cls); b.innerHTML = ic(icon); b.title = title; b.setAttribute("aria-label", title); return b; };
+const rand = (n, a = "abcdefghijklmnopqrstuvwxyz0123456789") => Array.from(crypto.getRandomValues(new Uint8Array(n)), b => a[b % a.length]).join("");
+const key = b => (b.label || "").trim().toLowerCase();
+const hue = s => { let h = 0; for (const c of s) h = (h * 31 + c.charCodeAt(0)) % 360; return h; };
+const tint = s => s ? { background: `hsl(${hue(s)} 80% 92%)`, color: `hsl(${hue(s)} 60% 38%)` } : { background: "var(--card-2)", color: "var(--dim)" };
+function ago(d) {
+  const s = (Date.now() - new Date(d)) / 1000;
+  if (s < 60) return "Just now"; if (s < 3600) return Math.floor(s / 60) + "m ago";
+  if (s < 86400) return Math.floor(s / 3600) + "h ago"; return new Date(d).toLocaleDateString();
+}
+function toast(msg) { const t = el("div", "toast", msg); document.body.append(t); setTimeout(() => t.remove(), 2400); }
+async function copy(text, what) { try { await navigator.clipboard.writeText(text); toast("Copied " + (what || text)); } catch { toast("Copy failed"); } }
+const jget = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
+const jset = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+
+async function api(path, { method = "GET", body, token } = {}) {
+  const r = await fetch(API + path, {
+    method,
+    headers: { ...(body ? { "Content-Type": "application/json" } : {}), ...(token ? { Authorization: "Bearer " + token } : {}) },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (r.status === 204) return null;
+  const data = await r.json().catch(() => null);
+  if (r.status === 401 && data?.["hydra:description"] === "Not signed in") { location.href = "/login"; throw new Error("Signed out"); }
+  if (!r.ok) throw Object.assign(new Error(data?.["hydra:description"] || r.statusText), { status: r.status });
+  return data;
+}
+
+// ---- state
+let inboxes = jget(STORE, []);          // {id, label, address, password, token, accountId}
+const prefs = { view: "tiles", ...jget(PREF, {}) };
+const tiles = new Map();                 // id -> {box, el, st, refs}
+const msgCache = new Map();              // message id -> full message
+let filter = "all", sel = null, tab = "preview";
+const save = () => jset(STORE, inboxes.map(({ id, label, address, password, token, accountId }) => ({ id, label, address, password, token, accountId })));
+const visible = () => inboxes.filter(b => filter === "all" || key(b) === filter);
+
+// ---- static icons
+$("#logoI").innerHTML = ic("check", 22).replace('stroke="currentColor"', 'stroke="#fff"');
+$("#add").innerHTML = ic("plus") + "New inbox";
+$("#vTiles").innerHTML = ic("grid", 18) + "Tiles";
+$("#vList").innerHTML = ic("list", 18) + "List";
+$("#clear").innerHTML = ic("trash", 18) + "Close all";
+
+// ---- sidebar / toolbar
+function renderSide() {
+  const groups = new Map();
+  for (const b of inboxes) { const k = key(b); (groups.get(k) || groups.set(k, { name: b.label.trim() || "Unlabelled", n: 0 }).get(k)).n++; }
+  if (filter !== "all" && !groups.has(filter)) filter = "all";
+  const nav = $("#nav"); nav.replaceChildren();
+  const item = (k, name, n, icon) => {
+    const b = el("button", k === filter ? "on" : ""); b.innerHTML = icon;
+    b.append(el("span", "n", name), el("span", "c", String(n)));
+    b.onclick = () => { filter = k; renderSide(); applyFilter(); }; nav.append(b);
+  };
+  item("all", "All inboxes", inboxes.length, ic("mail"));
+  groups.forEach((g, k) => {
+    const dot = `<span class="dotp" style="background:${k ? `hsl(${hue(k)} 70% 62%)` : "#5b6a92"}"></span>`;
+    item(k, g.name, g.n, dot);
+  });
+}
+function applyFilter() {
+  const vis = new Set(visible().map(b => b.id));
+  tiles.forEach((t, id) => { t.el.hidden = !vis.has(id); });
+  const n = vis.size;
+  $("#count").textContent = `${n} active inbox${n === 1 ? "" : "es"}`;
+  const g = $("#gone");
+  g.hidden = n > 0;
+  g.replaceChildren(); g.innerHTML = ic("mail", 40).replace("<svg", '<svg style="margin:0 auto 10px"');
+  const b = el("b", null, inboxes.length ? "No inboxes in this group" : "No inboxes yet");
+  g.append(b, inboxes.length ? "Pick another group or create a new inbox." : "Click “New inbox” to create a temporary address.");
+  $("#grid").className = prefs.view === "list" ? "list" : "";
+  $("#vTiles").classList.toggle("on", prefs.view !== "list"); $("#vList").classList.toggle("on", prefs.view === "list");
+  const any = [...tiles.values()].some(t => vis.has(t.box.id) && t.st.status === "live");
+  $("#ldot").className = "dot" + (any ? " live" : ""); $("#ltxt").textContent = any ? "Listening for email" : (n ? "Connecting…" : "Idle");
+  if (sel && !vis.has(sel.boxId)) { sel = null; renderPreview(); }
+}
+function updateTitle() {
+  let n = 0; tiles.forEach(t => t.st.msgs.forEach(m => { if (!t.st.seen.has(m.id)) n++; }));
+  document.title = (n ? `(${n}) ` : "") + "TestTickle";
+}
+
+// ---- tiles
+function mount(box) {
+  const st = { msgs: [], status: "connecting", known: null, seen: new Set(jget("tt.seen." + box.id, [])), timer: null };
+  const root = el("div", "tile"), head = el("div", "thead");
+  const grip = btn("grip", "grip", "Drag to reorder");
+  grip.innerHTML = ic("grip", 18);
+  const avatar = el("div", "avatar");
+  const tt = el("div", "tt"), trow = el("div", "trow");
+  const label = el("input", "label"); label.value = box.label || ""; label.placeholder = "Add label…"; label.maxLength = 40; label.title = "Click to rename";
+  const badge = el("span", "badge", "Connecting");
+  const addr = el("div", "addr", box.address); addr.title = box.address;
+  trow.append(label); tt.append(trow);
+  const acts = el("div", "acts");
+  const bCopy = btn("ib", "copy", "Copy address"), bRef = btn("ib", "refresh", "Refresh now"), bX = btn("ib", "x", "Close & delete inbox");
+  acts.append(bCopy, bRef, bX);
+  const hrow = el("div", "hrow"); hrow.append(grip, avatar, tt, acts);
+  const arow = el("div", "arow"); arow.append(addr, badge);
+  head.append(hrow, arow);
+  const list = el("div", "msgs");
+  root.append(head, list);
+  const t = { box, el: root, st, refs: { avatar, badge, list, bRef } };
+  tiles.set(box.id, t);
+  $("#grid").append(root);
+
+  const paintAvatar = () => { const l = (box.label || "").trim(); Object.assign(avatar.style, tint(key(box))); avatar.textContent = l ? l[0].toUpperCase() : "@"; };
+  paintAvatar();
+  label.addEventListener("input", () => { box.label = label.value; paintAvatar(); save(); renderSide(); applyFilter(); if (sel?.boxId === box.id) renderPreview(); });
+  label.addEventListener("change", () => { if (filter !== "all" && key(box) !== filter) { applyFilter(); } });
+  label.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === "Escape") label.blur(); });
+
+  bCopy.onclick = () => copy(box.address);
+  bRef.onclick = () => { bRef.classList.remove("spin"); void bRef.offsetWidth; bRef.classList.add("spin"); poll(t); };
+  bX.onclick = () => removeTile(t);
+
+  // drag to reorder
+  grip.addEventListener("pointerdown", () => { root.draggable = true; });
+  root.addEventListener("dragstart", e => { dragId = box.id; e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", box.id); root.classList.add("dragging"); });
+  root.addEventListener("dragend", () => { dragId = null; root.draggable = false; root.classList.remove("dragging"); tiles.forEach(x => x.el.classList.remove("over")); });
+  root.addEventListener("dragover", e => { if (dragId && dragId !== box.id) { e.preventDefault(); root.classList.add("over"); } });
+  root.addEventListener("dragleave", () => root.classList.remove("over"));
+  root.addEventListener("drop", e => { e.preventDefault(); root.classList.remove("over"); reorder(dragId, box.id); });
+
+  renderTile(t);
+  poll(t).then(() => loop(t));
+}
+let dragId = null;
+function reorder(from, to) {
+  if (!from || from === to) return;
+  const a = inboxes.findIndex(x => x.id === from), b = inboxes.findIndex(x => x.id === to), [moved] = inboxes.splice(a, 1);
+  inboxes.splice(b, 0, moved);
+  inboxes.forEach(b => $("#grid").append(tiles.get(b.id).el)); save();
+}
+function loop(t) {
+  t.timer = setTimeout(async () => { if (tiles.get(t.box.id) === t) { await poll(t); loop(t); } }, (document.hidden ? 25000 : POLL_MS) + Math.random() * 1500);
+}
+async function poll(t) {
+  try {
+    const list = (await api("/messages", { token: t.box.token }))["hydra:member"];
+    if (t.st.known && list.some(m => !t.st.known.has(m.id))) toast(`New email in ${t.box.label.trim() || t.box.address}`);
+    t.st.known = new Set(list.map(m => m.id)); t.st.msgs = list; t.st.status = "live";
+  } catch (e) {
+    if (e.status === 429) return;
+    t.st.status = e.status === 401 ? "expired" : "offline";
+  }
+  if (!tiles.has(t.box.id)) return;
+  renderTile(t); applyFilterLight(); updateTitle();
+  if (sel?.boxId === t.box.id) renderPreviewHeaderOnly();
+}
+const applyFilterLight = () => { const any = [...tiles.values()].some(t => t.st.status === "live"); $("#ldot").className = "dot" + (any ? " live" : ""); $("#ltxt").textContent = any ? "Listening for email" : "Connecting…"; };
+function renderTile(t) {
+  const { badge, list } = t.refs, { st } = t;
+  badge.className = "badge" + (st.status === "live" ? " live" : st.status === "connecting" ? "" : " bad");
+  badge.textContent = { live: "Live", connecting: "Connecting", expired: "Expired", offline: "Offline" }[st.status];
+  t.el.classList.toggle("sel", sel?.boxId === t.box.id);
+  const top = list.scrollTop; list.replaceChildren();
+  if (!st.msgs.length) {
+    const n = el("div", "none"); n.innerHTML = ic("mail", 44);
+    n.append(el("b", null, "Ready when you are"), "Send an email to this address to see it here.");
+    list.append(n); return;
+  }
+  for (const m of st.msgs) {
+    const unseen = !st.seen.has(m.id);
+    const row = el("div", "msg" + (unseen ? " new" : "") + (sel?.msgId === m.id ? " on" : ""));
+    const b = el("div", "b"); b.append(el("div", "f", m.from?.name || m.from?.address || "(unknown)"), el("div", "s", m.subject || "(no subject)"));
+    const time = el("time", null, ago(m.createdAt)); time.title = new Date(m.createdAt).toLocaleString();
+    row.append(el("span", "u"), b, time);
+    row.onclick = () => select(t, m);
+    list.append(row);
+  }
+  list.scrollTop = top;
+}
+function removeTile(t) {
+  clearTimeout(t.timer); t.el.remove(); tiles.delete(t.box.id);
+  inboxes = inboxes.filter(b => b !== t.box); save();
+  try { localStorage.removeItem("tt.seen." + t.box.id); } catch {}
+  if (sel?.boxId === t.box.id) sel = null;
+  renderSide(); applyFilter(); renderPreview(); updateTitle();
+  api("/accounts/" + t.box.accountId, { method: "DELETE", token: t.box.token }).catch(() => {});
+}
+
+// ---- preview
+function select(t, m) {
+  const prev = sel && tiles.get(sel.boxId);
+  sel = { boxId: t.box.id, msgId: m.id };
+  t.st.seen.add(m.id); jset("tt.seen." + t.box.id, [...t.st.seen]);
+  if (prev && prev !== t) renderTile(prev);
+  renderTile(t); updateTitle(); renderPreview();
+  if (!msgCache.has(m.id)) api("/messages/" + m.id, { token: t.box.token })
+    .then(f => { msgCache.set(m.id, f); if (sel?.msgId === m.id) renderPreview(); })
+    .catch(e => { if (sel?.msgId === m.id) renderPreview("Could not load message: " + e.message); });
+}
+function extras(f) {
+  const text = (f.subject || "") + "\n" + (f.text || "");
+  const out = []; const seen = new Set();
+  const add = (kind, v) => { if (!seen.has(v) && out.length < 8) { seen.add(v); out.push({ kind, v }); } };
+  for (const m of text.matchAll(/(?:code|otp|pin|passcode)\D{0,24}(\d{4,8})\b/gi)) add("code", m[1]);
+  for (const m of text.matchAll(/\b(\d{6})\b/g)) add("code", m[1]);
+  const html = (f.html || []).join("");
+  for (const m of html.matchAll(/href\s*=\s*["'](https?:\/\/[^"'\s>]+)["']/gi)) add("link", m[1].replace(/&amp;/g, "&"));
+  for (const m of text.matchAll(/https?:\/\/[^\s<>"')]+/g)) add("link", m[0]);
+  return out;
+}
+function renderPreviewHeaderOnly() { /* status changes don't affect preview content */ }
+function renderPreview(err) {
+  const pv = $("#pv"); pv.replaceChildren();
+  const t = sel && tiles.get(sel.boxId), m = t?.st.msgs.find(x => x.id === sel.msgId);
+  if (!t || !m) {
+    pv.append(el("div", "eyebrow", "Message preview"), el("div", "pvempty", "Select a message from any inbox to preview it here."));
+    return;
+  }
+  const f = msgCache.get(m.id);
+  const head = el("div", "pvh"), l = el("div");
+  l.append(el("div", "eyebrow", "Message preview · " + (t.box.label.trim() || t.box.address)), el("h2", null, m.subject || "(no subject)"),
+    el("div", "from", `${m.from?.name || ""} <${m.from?.address || ""}>`.trim()));
+  const tabs = el("div", "tabs");
+  [["preview", "Preview"], ["html", "HTML"], ["headers", "Headers"]].forEach(([k, n]) => {
+    const b = el("button", k === tab ? "on" : "", n); b.onclick = () => { tab = k; renderPreview(); }; tabs.append(b);
+  });
+  head.append(l, tabs); pv.append(head);
+  if (!f) { pv.append(el("div", "pvbody", err || "Loading…")); return; }
+  const ex = extras(f);
+  if (ex.length) {
+    const chips = el("div", "chips");
+    for (const e of ex) {
+      const c = el("button", "chip"); c.title = e.kind === "code" ? "Copy code" : "Copy link";
+      if (e.kind === "code") c.append(el("span", null, "Code"), el("b", null, e.v));
+      else c.append(el("span", null, "🔗 " + e.v.replace(/^https?:\/\//, "")));
+      c.onclick = () => copy(e.v, e.kind === "code" ? "code" : "link"); chips.append(c);
+    }
+    pv.append(chips);
+  }
+  const body = el("div", "pvbody"), html = (f.html || []).join("");
+  if (tab === "preview") {
+    if (html) { const fr = document.createElement("iframe"); fr.sandbox = "allow-popups allow-popups-to-escape-sandbox"; fr.srcdoc = `<base target="_blank">${html}`; body.append(fr); }
+    else body.append(el("pre", null, f.text || "(empty message)"));
+  } else if (tab === "html") body.append(el("pre", null, html || f.text || "(empty message)"));
+  else {
+    const tb = document.createElement("table");
+    const rows = [["From", `${f.from?.name || ""} <${f.from?.address || ""}>`], ["To", (f.to || []).map(x => x.address).join(", ")],
+      ["Subject", f.subject], ["Date", new Date(f.createdAt).toLocaleString()], ["Size", f.size + " bytes"], ["Message ID", f.id]];
+    if (f.attachments?.length) rows.push(["Attachments", f.attachments.map(a => a.filename).join(", ")]);
+    rows.forEach(([k, v]) => { const r = tb.insertRow(); r.insertCell().textContent = k; r.insertCell().textContent = v ?? ""; });
+    body.append(tb);
+  }
+  pv.append(body, el("div", "pvf", `Received ${new Date(f.createdAt).toLocaleString()} · to ${t.box.address}`));
+}
+
+// ---- create / dialogs
+async function createInbox(label) {
+  const domain = (await api("/domains"))["hydra:member"][0].domain;
+  const address = `test-${rand(10)}@${domain}`, password = rand(16);
+  const acct = await api("/accounts", { method: "POST", body: { address, password } });
+  const { token } = await api("/token", { method: "POST", body: { address, password } });
+  const box = { id: rand(8), label, address, password, token, accountId: acct.id };
+  inboxes.push(box); save(); mount(box); renderSide(); applyFilter();
+}
+const dlg = $("#dlg"), dlgLabel = $("#dlgLabel");
+$("#add").onclick = () => {
+  dlgLabel.value = filter !== "all" ? (inboxes.find(b => key(b) === filter)?.label.trim() || "") : "";
+  const names = [...new Set([...inboxes.map(b => b.label.trim()).filter(Boolean), "Candidate", "Client", "Admin", "QA sandbox"])].slice(0, 8);
+  $("#chips").replaceChildren(...names.map(n => { const c = el("button", "chip", n); c.type = "button"; c.onclick = () => { dlgLabel.value = n; dlgLabel.focus(); }; return c; }));
+  dlg.showModal(); dlgLabel.focus(); dlgLabel.select();
+};
+$("#dlgCancel").onclick = () => dlg.close();
+$("#dlgForm").onsubmit = async () => {
+  const b = $("#add"), label = dlgLabel.value.trim();
+  b.disabled = true;
+  try { await createInbox(label); } catch (err) { toast("Failed: " + err.message); }
+  b.disabled = false;
+};
+$("#seg").onclick = e => { const v = e.target.closest("button")?.dataset.v; if (v) { prefs.view = v; jset(PREF, prefs); applyFilter(); } };
+$("#clear").onclick = () => {
+  const vs = visible(); if (!vs.length) return;
+  if (confirm(`Close and delete ${vs.length} inbox${vs.length === 1 ? "" : "es"}?`)) vs.forEach(b => removeTile(tiles.get(b.id)));
+};
+window.addEventListener("pointerup", () => tiles.forEach(t => { if (!dragId) t.el.draggable = false; }));
+setInterval(() => tiles.forEach(renderTile), 30000);
+
+inboxes.forEach(b => { b.label = b.label || ""; mount(b); });
+renderSide(); applyFilter(); renderPreview();
+</script>
+</body>
+</html>
