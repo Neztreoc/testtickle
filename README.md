@@ -30,5 +30,4 @@ Pages has no server, so the mail.tm proxy runs as a free Cloudflare Worker:
 ## Fallback provider
 
 If mail.tm is down when you create an inbox, the app falls back to temp-mail.io (proxied by `server.js` at `/api2`).
-The tile's address tooltip shows which provider made it. The fallback works with `node server.js` only; on GitHub Pages
-set `apiBase2` in `config.js` to a Worker that proxies `https://api.internal.temp-mail.io/api/v3`.
+The tile's address tooltip shows which provider made it. The same `worker.js` also serves the fallback (at `<worker>/tmio`), so no extra setup on GitHub Pages.

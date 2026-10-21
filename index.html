@@ -256,7 +256,7 @@ const jget = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; 
 const jset = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
 
 // Fallback provider (temp-mail.io), used when mail.tm is down. Needs a proxy path too: server.js provides /api2.
-const API2 = (window.TESTTICKLE_CONFIG || {}).apiBase2 || (API === "/api" ? "/api2" : null);
+const API2 = (window.TESTTICKLE_CONFIG || {}).apiBase2 || (API === "/api" ? "/api2" : API + "/tmio");
 
 async function api(path, { method = "GET", body, token, base = API } = {}) {
   const r = await fetch(base + path, {
